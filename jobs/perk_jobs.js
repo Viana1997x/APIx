@@ -19,8 +19,6 @@ class perkJobs {
         const Perks = []
         const parsedHTML = HTMLParser.parse(data)
 
-        // CSS selector for ** perks table:
-        // h2:has(span[id^='**_Perks_'])+table
         const PerkTable = parsedHTML.querySelector(selector)
 
         if (!PerkTable) {
@@ -29,22 +27,22 @@ class perkJobs {
         }
 
         PerkTable.childNodes.forEach(tableRow => {
-          if (!tableRow.childNodes[1]) { return }
+          if (tableRow.nodeType !== 1 || !tableRow.childNodes[1]) { return }
 
           const iconA = tableRow.querySelectorAll('th')[0].querySelector('a')
           const nameA = tableRow.querySelectorAll('th')[1].querySelector('a')
 
-          // Check if actual perk
           if (!iconA || !nameA) { return }
 
-          const contentA = tableRow.querySelectorAll('td')[0].querySelector('.formattedPerkDesc')
+          const contentA = tableRow.querySelectorAll('td')[0]
+
+          if (!contentA) { return }
 
           const character = tableRow.querySelectorAll('th')[2].querySelectorAll('a')[0]
 
-          // Actual usable variables
           const perkIcon = iconA.attributes.href
           const perkName = nameA.text
-          const URIName = nameA.attributes.href.split('/').pop() // Should only be 3% slower than arr[arr.length - 1]
+          const URIName = nameA.attributes.href.split('/').pop()
 
           contentA.querySelectorAll('a').forEach(link => {
             link.setAttribute('href', this.#addURL + link.attributes.href)
@@ -53,7 +51,7 @@ class perkJobs {
           const content = contentA.innerHTML
           const perkData = { URIName, name: perkName, iconURL: perkIcon, content, contentText: stripHtml(content).result }
 
-          if (character) { // Check if character exists, otherwise assume perk belongs to all
+          if (character) {
             perkData.characterName = character.attributes.title
           }
 
@@ -82,16 +80,12 @@ class perkJobs {
 
       await survivorPerk.bulkWrite(bulkOps)
 
-      // Now add all character references
       await survivorPerk.aggregate([
-        // Only grab perks with characters assigned
         {
           $match: {
             characterName: { $exists: true }
           }
         },
-        // Get character from perk.characterName
-        // $project it to only select _id from character
         {
           $lookup: {
             from: 'survivors',
@@ -100,20 +94,17 @@ class perkJobs {
             as: 'character'
           }
         },
-        // Unpack array into an object
         {
           $unwind: { path: '$character' }
         },
-        // Overwrite character field to only be _id from object unpacked above
         {
           $set: { character: { $getField: { field: '_id', input: '$character' } } }
         },
-        // Now merge the updated cells into the table, so we also keep the perks without any characters assigned
         {
           $merge: {
-            into: "survivorperks",
-            whenMatched: "replace",
-            whenNotMatched: "insert"
+            into: 'survivorperks',
+            whenMatched: 'replace',
+            whenNotMatched: 'insert'
           }
         }
       ])
@@ -140,43 +131,50 @@ class perkJobs {
       })
 
       await killerPerk.bulkWrite(bulkOps)
-
-      // Now add all character references
+      
       await killerPerk.aggregate([
-        // Only grab perks with characters assigned
         {
           $match: {
-            characterName: { $exists: true } 
+            characterName: { $exists: true }
           }
         },
-        // Get character from perk.characterName
-        // $project it to only select _id from character
         {
           $lookup: {
             from: 'killers',
-            localField: 'characterName',
-            foreignField: 'killerName',
+            let: { perkCharName: '$characterName' },
+            pipeline: [
+              {
+                $match: {
+                  $expr: {
+                    $or: [
+                      { $eq: ['$name', '$$perkCharName'] },
+                      { $regexMatch: { input: '$killerName', regex: `$$perkCharName` } }
+                    ]
+                  }
+                }
+              }
+            ],
             as: 'character'
           }
         },
-        // Unpack array into an object
         {
           $unwind: { path: '$character' }
         },
-        // Overwrite character field to only be _id from object unpacked above
         {
           $set: {
-            character: {
-              $getField: { field: '_id', input: '$character' }
-            }
+            characterName: { $getField: { field: 'killerName', input: '$character' } }
           }
         },
-        // Now merge the updated cells into the table, so we also keep the perks without any characters assigned
+        {
+          $set: {
+            character: { $getField: { field: '_id', input: '$character' } }
+          }
+        },
         {
           $merge: {
-            into: "killerperks",
-            whenMatched: "replace",
-            whenNotMatched: "insert"
+            into: 'killerperks',
+            whenMatched: 'replace',
+            whenNotMatched: 'insert'
           }
         }
       ])

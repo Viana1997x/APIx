@@ -1,71 +1,59 @@
 import express from 'express'
 import mongoose from 'mongoose'
 
-import { survivorPerk } from '../../../db/models/perk.js'
+import { Addon } from '../../../db/models/addon.js'
 import Prettify from '../../../utils/prettify.js'
 
 const router = express.Router()
 
-// --- GET (Ler Todos com Paginação e Ordenação) ---
 async function handleRead (req, res) {
   try {
     const { page = 1, limit = 20, sortBy = 'name', order = 'asc' } = req.query;
-
     const filterQuery = { ...req.query };
     delete filterQuery.page;
     delete filterQuery.limit;
     delete filterQuery.sortBy;
     delete filterQuery.order;
-
-    const [perks, totalDocuments] = await Promise.all([
-      survivorPerk.find(filterQuery)
-        .populate('character')
+    
+    if (filterQuery.killer && mongoose.Types.ObjectId.isValid(filterQuery.killer)) {
+      filterQuery.killer = new mongoose.Types.ObjectId(filterQuery.killer);
+    }
+    const [addons, totalDocuments] = await Promise.all([
+      Addon.find(filterQuery)
+        .populate('killer')
         .sort({ [sortBy]: order })
         .limit(parseInt(limit))
         .skip((parseInt(page) - 1) * parseInt(limit)),
-      survivorPerk.countDocuments(filterQuery)
+      Addon.countDocuments(filterQuery)
     ]);
-
     const totalPages = Math.ceil(totalDocuments / limit);
-
     res.status(200).send(Prettify._JSON({
-      perks,
-      pagination: {
-        totalDocuments,
-        totalPages,
-        currentPage: parseInt(page),
-        perPage: parseInt(limit)
-      }
+      addons,
+      pagination: { totalDocuments, totalPages, currentPage: parseInt(page), perPage: parseInt(limit) }
     }));
   } catch (error) {
     res.status(500).send(Prettify._JSON({ error: error.message }));
   }
 }
 
-// --- GET (Ler Um por ID) ---
 function handleReadOne (req, res) {
     const { id } = req.params
-
     if (!mongoose.Types.ObjectId.isValid(id)) {
-        return res.status(400).send(Prettify._JSON({ error: "ID de perk inválido." }))
+        return res.status(400).send(Prettify._JSON({ error: "ID de complemento inválido." }))
     }
-
-    survivorPerk.findById(id).populate('character').then(perk => {
-        if (!perk) {
-            return res.status(404).send(Prettify._JSON({ error: "Perk de sobrevivente não encontrada." }))
+    Addon.findById(id).populate('killer').then(addon => {
+        if (!addon) {
+            return res.status(404).send(Prettify._JSON({ error: "Complemento não encontrado." }))
         }
-        res.status(200).send(Prettify._JSON({ perk: perk }))
+        res.status(200).send(Prettify._JSON({ addon: addon }))
     })
     .catch(error => {
         res.status(500).send(Prettify._JSON({ error: error.message }))
     })
 }
 
+router.get('/addons', handleRead)
 
- 
-router.get('/survivor_perks', handleRead)
-
- 
-router.get('/survivor_perks/:id', handleReadOne)
+router.get('/addons/:id', handleReadOne)
 
 export default router

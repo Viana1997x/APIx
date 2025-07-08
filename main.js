@@ -7,6 +7,9 @@ import compression from 'compression'
 import cors from 'cors'
 import { statsModel } from './db/models/stats.js'
 import mongoSanitize from 'express-mongo-sanitize'
+import swaggerJSDoc from 'swagger-jsdoc';
+import swaggerUi from 'swagger-ui-express';
+import imageProxyRouter from './routes/image_proxy.js';
 
 // Use router provided by the routes in V1
 import V1Router from './routes/API/V1.js'
@@ -17,7 +20,7 @@ import V1Router from './routes/API/V1.js'
 import statsRouter from './routes/stats.js'
 
 const app = express()
-const port = process.env.PORT || 80
+const port = process.env.PORT || 1987
 
 // Open connection if not already connected
 DBI.initConnection()
@@ -26,6 +29,8 @@ app.use(bodyParser.urlencoded({ extended: true }))
 
 // Allow Cross-origin
 app.use(cors())
+
+app.use('/api/image-proxy', imageProxyRouter);
 
 // Use Express compression
 app.use(compression())
@@ -37,6 +42,37 @@ app.use(compression())
 // - req.headers
 // - req.query
 app.use(mongoSanitize())
+
+// --- NOVA SEÇÃO: CONFIGURAÇÃO DO SWAGGER ---
+
+// Define as opções para o swagger-jsdoc
+const swaggerOptions = {
+  swaggerDefinition: {
+    openapi: '3.0.0',
+    info: {
+      title: 'Dead by Daylight API',
+      version: '1.0.0',
+      description: 'Uma API completa com dados do jogo Dead by Daylight, raspados da Fandom Wiki.',
+      contact: {
+        name: 'Techial',
+        url: 'https://github.com/Techial/DBD-Database'
+      },
+    },
+    servers: [
+      {
+        url: 'http://localhost:1987' // Altere para a URL do seu servidor de produção se necessário
+      }
+    ]
+  },
+  // Caminho para os arquivos que contêm a documentação da API (suas rotas)
+  apis: ['./routes/API/V1/*.js']
+};
+
+const swaggerDocs = swaggerJSDoc(swaggerOptions);
+// Cria uma nova rota '/api-docs' para servir a documentação interativa
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocs));
+
+// --- FIM DA SEÇÃO DO SWAGGER ---
 
 // Middleware for setting header response to JSON
 app.use((req, res, next) => {

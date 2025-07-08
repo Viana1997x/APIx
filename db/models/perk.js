@@ -21,5 +21,9 @@ const killerPerkModel = new Schema({
   contentText: { type: String, required: true }
 })
 
+// Adiciona o índice de texto
+survivorPerkModel.index({ name: 'text', contentText: 'text' });
+killerPerkModel.index({ name: 'text', contentText: 'text' });
+
 export const survivorPerk = mongoose.model('survivorPerk', survivorPerkModel)
 export const killerPerk = mongoose.model('killerPerk', killerPerkModel)

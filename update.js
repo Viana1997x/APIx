@@ -1,32 +1,27 @@
-import perkJobs from './jobs/perk_jobs.js'
-import charJobs from './jobs/char_jobs.js'
-import DBI from './db/db.js'
+import perkJobs from './jobs/perk_jobs.js';
+import charJobs from './jobs/char_jobs.js';
+import realmJobs from './jobs/realm_jobs.js';
+import itemJobs from './jobs/item_jobs.js';
+import itemAddonJobs from './jobs/item_addon_jobs.js'; // <-- ADICIONE
+import DBI from './db/db.js';
 
-// Open connection if not already connected
-DBI.initConnection()
+DBI.initConnection();
 
-// Keep this for later, as we're going to add more scraping to our DB
-let perksUpdated; let charactersUpdated = false
+console.log('Starting database update...');
 
-function closeProcess () {
-  if (perksUpdated && charactersUpdated) {
-    console.log('Database update finished.')
-    process.exit(0)
-  }
-}
-
-// Update perks after app is built & every hour, instead of every time the dyno starts
-
-// Update characters first
-charJobs.updateKillersAndSurvivors().then(res => {
-  console.log(res)
-  charactersUpdated = true
-
-  // Then upgrade perks
-  perkJobs.updateKillerAndSurvivorPerks().then(res => {
-    console.log(res)
-    perksUpdated = true
-    closeProcess()
-  })
-})
-// Close process to stop it from launching server.
+Promise.all([
+  charJobs.updateKillersAndSurvivors().then(res => {
+    console.log(res);
+    return perkJobs.updateKillerAndSurvivorPerks();
+  }),
+  realmJobs.updateRealmsAndMaps(),
+  itemJobs.updateItems(),
+  itemAddonJobs.updateItemAddons() // <-- ADICIONE
+]).then(results => {
+  results.flat().forEach(res => res && console.log(res));
+  console.log('Database update finished successfully.');
+  process.exit(0);
+}).catch(error => {
+  console.error('An error occurred during the update process:', error);
+  process.exit(1);
+});
