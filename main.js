@@ -10,6 +10,7 @@ import mongoSanitize from 'express-mongo-sanitize'
 import swaggerJSDoc from 'swagger-jsdoc';
 import swaggerUi from 'swagger-ui-express';
 import imageProxyRouter from './routes/image_proxy.js';
+import jobsRouter from './routes/jobs.js';
 
 // Use router provided by the routes in V1
 import V1Router from './routes/API/V1.js'
@@ -29,6 +30,7 @@ app.use(bodyParser.urlencoded({ extended: true }))
 
 // Allow Cross-origin
 app.use(cors())
+app.use('/api/jobs', jobsRouter);
 
 app.use('/api/image-proxy', imageProxyRouter);
 
