@@ -12,6 +12,7 @@ import swaggerUi from 'swagger-ui-express';
 import imageProxyRouter from './routes/image_proxy.js';
 import jobsRouter from './routes/jobs.js';
 
+
 // Use router provided by the routes in V1
 import V1Router from './routes/API/V1.js'
 /// ///////////////////////////
@@ -44,6 +45,18 @@ app.use(compression())
 // - req.headers
 // - req.query
 app.use(mongoSanitize())
+
+
+// --- ROTA DE BOAS-VINDAS (A CORREÇÃO) ---
+// Esta rota responderá à URL principal
+app.get('/', (req, res) => {
+  res.status(200).json({ 
+    message: 'Bem-vindo à API de Dead by Daylight!',
+    status: 'Online',
+    timestamp: new Date().toISOString()
+  });
+});
+// --- FIM DA CORREÇÃO ---
 
 // --- NOVA SEÇÃO: CONFIGURAÇÃO DO SWAGGER ---
 
